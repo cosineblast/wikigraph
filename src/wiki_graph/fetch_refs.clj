@@ -2,9 +2,12 @@
   (:import [org.jsoup Jsoup])
   (:require [clojure.string :as s]
             [clojure.core.async :as a]
+            [org.httpkit.client :as http]
+
             )
   )
 
+(declare load-refs)
 
 (defn remove-unwanted-tags [doc]
 
@@ -51,11 +54,12 @@
 (defn tag-to-reference [tag]
    (.substring (.attr tag "href") 6))
 
+(defn get-full-url [target] (str "https://en.wikipedia.org/wiki/" target))
 
-(defn fetch-wikipedia-refs [target]
-  (let [url (str "https://en.wikipedia.org/wiki/" target)
-        doc (.get (Jsoup/connect url))
-        ]
+
+
+
+(defn load-refs [doc]
 
     (remove-unwanted-tags doc)
 
@@ -68,12 +72,37 @@
            (map tag-to-reference)
            (into #{}))
       )
-
-    )
   )
 
-(defn fetch-wikipedia-refs-channel [target]
+(defn load-body [body] (load-refs (Jsoup/parse body)))
 
-  (a/thread (fetch-wikipedia-refs target))
+(defn fetch-wikipedia-refs [target]
+  (let [url (get-full-url target)
+        doc (.get (Jsoup/connect url))]
+
+    (load-refs doc)
+    ))
+
+(defn fetch-wikipedia-refs-async [target]
+
+  (let [config {:timeout 800 :keepalive -1}
+        channel (a/chan 1)
+        url (get-full-url target)
+
+        on-result
+        (fn [{:keys [error status headers body]}]
+
+          (if error
+            (a/put! channel { :error error })
+            (a/put! channel { :value (load-body body) })
+            )
+
+          (a/close! channel)
+          )]
+
+    (http/get url nil on-result)
+
+    channel
+    )
 
   )
