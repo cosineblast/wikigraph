@@ -54,10 +54,7 @@
 (defn tag-to-reference [tag]
    (.substring (.attr tag "href") 6))
 
-(defn get-full-url [target] (str "https://en.wikipedia.org/wiki/" target))
-
-
-
+(defn get-full-url [target] (str "http://en.wikipedia.org/wiki/" target))
 
 (defn load-refs [doc]
 
@@ -76,25 +73,27 @@
 
 (defn load-body [body] (load-refs (Jsoup/parse body)))
 
-(defn fetch-wikipedia-refs [target]
+(defn fetch-wiki-refs [target]
   (let [url (get-full-url target)
         doc (.get (Jsoup/connect url))]
 
     (load-refs doc)
     ))
 
-(defn fetch-wikipedia-refs-async [target]
+(defn fetch-wiki-refs-async [target]
 
   (let [config {:timeout 800 :keepalive -1}
         channel (a/chan 1)
+        _ (println (get-full-url target))
         url (get-full-url target)
 
         on-result
         (fn [{:keys [error status headers body]}]
 
-          (if error
-            (a/put! channel { :error error })
-            (a/put! channel { :value (load-body body) })
+          (cond
+            error (a/put! channel { :error error })
+            (not= status 200) (a/put! channel { :error status } )
+            :else (a/put! channel { :value (load-body body) })
             )
 
           (a/close! channel)

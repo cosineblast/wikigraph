@@ -7,14 +7,9 @@
             [wiki-graph.timing :refer [timing time!]]
             )
 
-  (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]]
-            [taoensso.tufte :as tufte :refer [defnp p profiled profile]]
-            )
+  (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]])
 
   )
-
-(tufte/add-basic-println-handler! {})
-
 
 
 (def result-graph (atom {}))
@@ -23,48 +18,85 @@
 
 (def execution-count (atom 0))
 
+(def is-halted (atom false))
+
+(defn get-refs [job-channel]
+  (a/go
+
+    (when-let [job (<! job-channel)]
+
+      (report "Job" job "aquired! Getting Refs...")
+
+      (if-let [cached (@result-graph job)]
+
+        (do (report "Job was cached!") cached)
+
+        (let [{:keys [error value]} (<! (fetch-wiki-refs-async job))]
+          (if error
+            (do (report "Error while fetching refs:" error) nil)
+
+            [job value]
+            )
+
+          ))
+
+      ))
+  )
+
+(defn push-refs [job-channel job refs]
+  (a/go
+
+    (doseq [ref refs]
+      (if-not (contains? @result-graph ref)
+        (>! job-channel ref)
+        ))
+
+    (swap! result-graph assoc job refs)
+    )
+  )
+
+(defn halt! [job-channel]
+  (reset! is-halted true)
+  (a/close! job-channel)
+  )
+
 (defn run-fetcher [todo-count job-channel]
   (a/go
     (loop [i 0]
       (report "Fetcher Starting")
 
-      (when (< i todo-count)
+      (when (and (< i todo-count) (not @is-halted))
 
-        (report (str "Aquiring Job... [" i "/" todo-count "]"))
+        (do
+          (report i "/" todo-count "jobs done.")
+          (report (str "Aquiring job... [" i "/" todo-count "]"))
 
-        (let [job (<! job-channel)
-              _ (report "Job" job "aquired! Fetching Refs...")
-              refs (or (@result-graph job)
-                       (:value (<! (fetch-wikipedia-refs-async job))))]
+          (if-let [[job refs] (<! (get-refs job-channel))]
 
-          (report "Refs Fetched! Putting jobs...")
+            (do
+              (report "Refs Fetched! Putting refs...")
 
-          (doseq [ref refs]
-            (if-not (contains? @result-graph ref)
-              (>! job-channel ref)
-              ))
+              (<! (push-refs job-channel job refs))
 
-          (swap! result-graph assoc job refs)
+              (report "Job Done!")
 
-          (report "Job Done!")
+              (when (< (swap! execution-count inc) *execution-limit*)
+                (recur (inc i))))
 
-          (when (< (swap! execution-count inc) *execution-limit*)
-            (recur (inc i)))
-          ))
-      )
+            (do (report "HALTING") (halt! job-channel))
+            )
+          )))
 
-    (report "Fetcher Done!")
-    )
-
-  )
+    (report "Fetcher finished!")
+    ))
 
 
 (defn execute-fetch-round [& args]
 
   (report "Program Starting")
 
-  (let [thread-count 16
-        todo-count 100
+  (let [thread-count 4
+        todo-count 10
         job-channel (a/chan (+ *execution-limit* thread-count 1))
         initial-job "Communicating_sequential_processes"
         threads
@@ -116,5 +148,6 @@
   )
 
 (defn -main []
+
   (execute-fetch-round)
   )
