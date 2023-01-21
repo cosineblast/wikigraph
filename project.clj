@@ -8,10 +8,9 @@
 
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.jsoup/jsoup "1.15.3"]
-                 [org.clojure/core.async "1.4.627"]
-                 [com.taoensso/tufte "2.4.5"]
+                 [org.clojure/core.async "1.6.673"]
                  [http-kit "2.3.0"]
-                 ]
+                 [com.taoensso/carmine "3.2.0"]]
 
 
   :main ^:skip-aot wiki-graph.core

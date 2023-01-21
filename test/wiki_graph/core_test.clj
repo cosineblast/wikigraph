@@ -2,8 +2,20 @@
   (:require [clojure.test :refer :all]
             [wiki-graph.core :refer :all]
             [wiki-graph.fetch-refs :refer [fetch-wiki-refs-async]]
+            [wiki-graph.graph :as graph]
             [clojure.core.async :as a :refer [<!!]])
   )
+
+(deftest graph-gets-sets
+
+  (let [job "Clojure"
+        refs #{"Haskell" "Java" "Lisp"}]
+
+    (graph/assoc job refs)
+
+    (is (graph/get job) refs)
+    ))
+
 
 (deftest fetch-async-succeeds
   (testing "Fetches a page successfully."
