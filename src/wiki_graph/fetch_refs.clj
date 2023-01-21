@@ -73,18 +73,10 @@
 
 (defn load-body [body] (load-refs (Jsoup/parse body)))
 
-(defn fetch-wiki-refs [target]
-  (let [url (get-full-url target)
-        doc (.get (Jsoup/connect url))]
-
-    (load-refs doc)
-    ))
-
 (defn fetch-wiki-refs-async [target]
 
   (let [config {:timeout 800 :keepalive -1}
         channel (a/chan 1)
-        _ (println (get-full-url target))
         url (get-full-url target)
 
         on-result

@@ -20,6 +20,8 @@
 
 (def is-halted (atom false))
 
+(def seen-refs (atom #{}))
+
 (defn get-refs [job-channel]
   (a/go
 
@@ -29,7 +31,7 @@
 
       (if-let [cached (@result-graph job)]
 
-        (do (report "Job was cached!") cached)
+        (do (report "Job was cached!") [job cached])
 
         (let [{:keys [error value]} (<! (fetch-wiki-refs-async job))]
           (if error
@@ -47,15 +49,16 @@
   (a/go
 
     (doseq [ref refs]
-      (if-not (contains? @result-graph ref)
+      (if-not (contains? @seen-refs ref)
         (>! job-channel ref)
         ))
 
     (swap! result-graph assoc job refs)
-    )
-  )
+    (swap! seen-refs conj job)
+    ))
 
 (defn halt! [job-channel]
+  (report "HALTING")
   (reset! is-halted true)
   (a/close! job-channel)
   )
@@ -83,7 +86,7 @@
               (when (< (swap! execution-count inc) *execution-limit*)
                 (recur (inc i))))
 
-            (do (report "HALTING") (halt! job-channel))
+            (halt! job-channel)
             )
           )))
 
