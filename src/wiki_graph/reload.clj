@@ -4,11 +4,11 @@
 (defn r []
 
   (let [namespaces
-        '{wiki-graph.fetch-refs :on
-          wiki-graph.core :on
-          wiki-graph.statistics :off
-          wiki-graph.timing :on
-          wiki-graph.graph :off
+        '{wiki-graph.fetch-refs :off
+          wiki-graph.core :off
+          wiki-graph.statistics :on
+          wiki-graph.timing :off
+          wiki-graph.graph :on
           wiki-graph.search-round :on
           }
 

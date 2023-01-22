@@ -21,3 +21,10 @@
 
 (defn assoc [job refs]
   (wcar* (car/set (str "wiki:" job) refs)))
+
+(defn list-counts []
+  (let [keys (wcar* (car/keys "wiki:*"))
+        values (mapv count (wcar* :as-pipeline (doall (map car/get keys))))]
+
+    (map vector (map #(subs % 5) keys) values)
+    ))

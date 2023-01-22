@@ -1,13 +1,13 @@
 (ns wiki-graph.statistics)
 
-(def children-count (comp count second))
 
 
-(defn compute-most-dense-entry [data]
-  (apply max-key children-count data))
 
-(defn compute-least-dense-entry [data]
-  (apply min-key children-count data))
+(defn compute-most-by [key data]
+  (apply max-key key data))
+
+(defn compute-least-by [key data]
+  (apply min-key key data))
 
 (defn average-variance [stuff]
   (let [sum (apply + stuff)
@@ -18,32 +18,24 @@
         ]
 
     [average (- average-squares average)]
-
-
     ))
 
-(defn compute-average-variance-entry-density [data]
-  (average-variance (map children-count data)))
+(defn compute-average-variance-by [key data]
+  (average-variance (map key data)))
 
+(defn get-statistics-by [key data]
 
-
-(defn get-density-statistics [data]
-
-  (let [
-        [most least [average variance]]
+  (let [[most least [average variance]]
         (pvalues
-         (compute-most-dense-entry data)
-         (compute-least-dense-entry data)
-         (compute-average-variance-entry-density data)
-         )
-        ]
-    {:maximum [(first most) (count (first most))]
-     :minimum [(first least) (count (first least))]
+         (compute-most-by key data)
+         (compute-least-by key data)
+         (compute-average-variance-by key data)
+         )]
+
+    {:maximum [(first most) (key most)]
+     :minimum [(first least) (key least)]
      :average average
      :variance variance
      }
     )
-  )
-
-(defn get-word-statistics [data]
   )
