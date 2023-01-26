@@ -14,19 +14,19 @@
 (defn get-refs [job-channel]
   (a/go
 
-    (when-let [job (<! job-channel)]
+    (when-let [[parent job] (<! job-channel)]
 
       (report "Job" job "aquired! Getting Refs...")
 
       (if-let [cached (graph/get job)]
 
-        (do (report "Job was cached!") [job cached])
+        (do (report "Job was cached!") [parent job cached])
 
         (let [{:keys [error value]} (<! (fetch-wiki-refs-async job))]
           (if error
             (do (report "Error while fetching refs:" error) nil)
 
-            [job value]
+            [parent job value]
             )
 
           ))
@@ -43,7 +43,7 @@
     (loop [refs (filter (comp not @*seen-refs*) input-refs)]
 
       (if-let [[ref & more] (seq refs)]
-        (if (>! job-channel ref)
+        (if (>! job-channel [job ref])
           (recur more)
           :closed)
         :success
@@ -74,7 +74,7 @@
         (do (report i "/" todo-count "jobs done.")
             (report (str "Aquiring job... [" i "/" todo-count "]"))
 
-            (if-let [[job refs] (<! (get-refs job-channel))]
+            (if-let [[parent job refs] (<! (get-refs job-channel))]
 
               (do (report "Refs Fetched! Putting refs...")
 
@@ -85,7 +85,7 @@
 
                     (if (= :success result)
                       (do (report "Job Done!")
-                          (*notify* job)
+                          (*notify* [parent job])
                           (recur (inc i)))
                       (do (report "Push Failed:" result) (halt! job-channel))
                       ))
@@ -109,7 +109,7 @@
               *notify* on-notification]
 
       (let [initial-job start
-            thread-count (:thread-count config 1)
+            thread-count (:thread-count config 2)
             todo-count (:todo-count config 5)
             job-channel (a/chan (:channel-size config 20000))
             threads
@@ -122,7 +122,7 @@
 
         (report "Adding Job:" initial-job)
 
-        (>! job-channel initial-job)
+        (>! job-channel [nil initial-job])
 
         (report "Job Added")
 

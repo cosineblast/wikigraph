@@ -25,7 +25,11 @@
 (defn on-successful-search-request [start-term channel]
   (go
     (let [on-notify
-          (fn [item] (http-kit/send! channel item))]
+          (fn [[parent item]]
+            (http-kit/send! channel
+                            (json/write-str {:parent parent
+                                             :item item})))
+          ]
 
       (<! (execute-search start-term {} on-notify))
 
@@ -42,6 +46,8 @@
 
       (not
        (or (graph/get start-term)
+
+           ;; TODO: improve this
            (<!! (fetch/target-exists start-term)))) (not-found (str "Unknown page " start-term))
       :else
       (http-kit/with-channel request channel
