@@ -22,7 +22,7 @@
 
 (defn r [] (@stop) (reload))
 
-(defn on-successful-search-request [start-term channel]
+(defn on-successful-search-request [start-term config channel]
   (go
     (let [on-notify
           (fn [[parent item]]
@@ -31,18 +31,36 @@
                                              :item item})))
           ]
 
-      (<! (execute-search start-term {} on-notify))
+      (<! (execute-search start-term config on-notify))
 
       (http-kit/close channel)
 
       ))
   )
 
+(defn read-config [params]
+  (when-not (nil? params)
+
+    (let [[start-term task-count per-task channel-size should-slide]
+          (map params ["start" "tasks" "per_task" "channel_size" "slide"])
+          ]
+      (and start-term task-count per-task
+           {:start-term start-term
+             :task-count (Integer/parseInt task-count)
+             :per-task (Integer/parseInt per-task)
+             :channel-size (if (nil? channel-size) nil (Integer/parseInt channel-size))
+             :should-slide (if (nil? should-slide) false (Boolean/parseBoolean should-slide))})
+      )
+
+    )
+  )
+
 (defn handle-search-request [request]
-  (let [start-term (get-in request [:query-params "start"])]
+  (let [config (read-config (:query-params request))
+        start-term (:start-term config)]
 
     (cond
-      (or (empty? start-term) (not start-term)) (bad-request "Missing start query parameter")
+      (or (nil? start-term) (nil? config)) (bad-request "Missing parameters")
 
       (not
        (or (graph/get start-term)
@@ -53,7 +71,7 @@
       (http-kit/with-channel request channel
         (if (http-kit/websocket? channel)
 
-          (on-successful-search-request start-term channel)
+          (on-successful-search-request start-term config channel)
 
           (http-kit/close channel)
           )
@@ -80,8 +98,8 @@
 
    ;; TODO: use compojure-api
 
-   (GET "/search" request (handle-search-request request))
-
+   (GET "/search" request
+        (handle-search-request request))
    )
   )
 
@@ -94,4 +112,4 @@
 
 
 (defn -main []
-  (reset! stop (http-kit/run-server app { :port 8000 })))
+  (reset! stop (http-kit/run-server app { :port 8001 })))

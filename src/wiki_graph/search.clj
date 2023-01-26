@@ -76,20 +76,21 @@
 
             (if-let [[parent job refs] (<! (get-refs job-channel))]
 
-              (do (report "Refs Fetched! Putting refs...")
+              (do
+                (report "Refs Fetched! Putting refs...")
 
-                  (let [result
-                        (<! (result-or-timeout
-                             (push-refs job-channel job refs)
-                             100))]
+                (let [result
+                      (<! (result-or-timeout
+                           (push-refs job-channel job refs)
+                           100))]
 
-                    (if (= :success result)
-                      (do (report "Job Done!")
-                          (*notify* [parent job])
-                          (recur (inc i)))
-                      (do (report "Push Failed:" result) (halt! job-channel))
-                      ))
-                  )
+                  (if (= :success result)
+                    (do (report "Job Done!")
+                        (*notify* [parent job])
+                        (recur (inc i)))
+                    (do (report "Push Failed:" result) (halt! job-channel))
+                    ))
+                )
 
               (do (halt! job-channel))
               )
@@ -98,8 +99,25 @@
     (report "Fetcher finished!")
     ))
 
+(defn start-fetchers [config]
+  (let [thread-count (:task-count config 4)
+        todo-count (:per-task config 25)
 
-(defn execute-search [start config on-notification]
+        channel-size (or (:channel-size config) 50000)
+        buffer-type (if (:should-slide config) a/sliding-buffer a/buffer)
+        job-channel (a/chan (buffer-type channel-size))
+
+        threads
+        (for [i (range thread-count)]
+          (with-thread-name (str "F" i)
+            (run-fetcher todo-count job-channel))
+          )]
+
+    [(doall threads) job-channel])
+  )
+
+
+(defn execute-search [initial-job config on-notification]
 
   (a/go
     (report "Search Starting")
@@ -108,17 +126,7 @@
               *seen-refs* (atom #{})
               *notify* on-notification]
 
-      (let [initial-job start
-            thread-count (:thread-count config 2)
-            todo-count (:todo-count config 5)
-            job-channel (a/chan (:channel-size config 20000))
-            threads
-            (for [i (range thread-count)]
-              (with-thread-name (str "F" i)
-                (run-fetcher todo-count job-channel))
-              )]
-
-        (dorun threads)
+      (let [[threads job-channel] (start-fetchers config)]
 
         (report "Adding Job:" initial-job)
 
@@ -131,5 +139,7 @@
         (a/close! job-channel)
 
         (report "Done!")
-        )
+
+        @*is-halted*)
+
       )))
