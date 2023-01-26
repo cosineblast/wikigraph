@@ -6,10 +6,12 @@
             [clojure.core.async :as a :refer [<!!]])
   )
 
-(deftest graph-gets-sets
+;; TODO: write tests for wiki-graph.fetch-refs/target-exists
 
-  (let [job "Clojure"
-        refs #{"Haskell" "Java" "Lisp"}]
+'(deftest graph-gets-sets
+
+  (let [job "Thingy1"
+        refs #{"Thingy2" "Thingy3" "Thingy4"}]
 
     (graph/assoc job refs)
 

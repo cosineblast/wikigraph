@@ -8,8 +8,8 @@
 
 
 (def ^:dynamic *is-halted*)
-
 (def ^:dynamic *seen-refs*)
+(def ^:dynamic *notify*)
 
 (defn get-refs [job-channel]
   (a/go
@@ -84,7 +84,9 @@
                              100))]
 
                     (if (= :success result)
-                      (do (report "Job Done!") (recur (inc i)))
+                      (do (report "Job Done!")
+                          (*notify* job)
+                          (recur (inc i)))
                       (do (report "Push Failed:" result) (halt! job-channel))
                       ))
                   )
@@ -97,18 +99,19 @@
     ))
 
 
-(defn execute-search [config]
+(defn execute-search [start config on-notification]
 
   (a/go
     (report "Search Starting")
 
     (binding [*is-halted* (atom false)
-              *seen-refs* (atom #{})]
+              *seen-refs* (atom #{})
+              *notify* on-notification]
 
-      (let [thread-count (:thread-count config 4)
-            todo-count (:todo-count config 100)
+      (let [initial-job start
+            thread-count (:thread-count config 1)
+            todo-count (:todo-count config 5)
             job-channel (a/chan (:channel-size config 20000))
-            initial-job "Clojure"
             threads
             (for [i (range thread-count)]
               (with-thread-name (str "F" i)

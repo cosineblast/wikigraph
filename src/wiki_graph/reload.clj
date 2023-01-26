@@ -4,12 +4,13 @@
 (defn reload []
 
   (let [namespaces
-        '{wiki-graph.fetch-refs :off
+        '{wiki-graph.fetch-refs :on
           wiki-graph.core :on
-          wiki-graph.statistics :off
-          wiki-graph.timing :off
-          wiki-graph.graph :off
+          wiki-graph.statistics :on
+          wiki-graph.timing :on
+          wiki-graph.graph :on
           wiki-graph.search :on
+          wiki-graph.report :on
           }
 
         on-namespaces (for [[namespace mode] namespaces :when (= mode :on)]

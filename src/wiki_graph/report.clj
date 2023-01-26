@@ -9,7 +9,8 @@
   (let [name (or *thread-name* "main")]
 
      (locking report
-       (apply println (cons (str "[" name "]") args)))
+       ;;(apply println (cons (str "[" name "]") args))
+       )
      ))
 
 (defmacro with-thread-name [name & body]

@@ -97,3 +97,23 @@
     )
 
   )
+
+(defn target-exists [target]
+  (let [config {:timeout 800 :keepalive -1}
+       channel (a/chan 1)
+       url (get-full-url target)
+
+       on-result
+       (fn [{:keys [error status headers body]}]
+
+         (if (or error (not= status 200))
+           (a/put! channel false)
+           (a/put! channel true))
+
+         (a/close! channel)
+         )]
+
+  (http/get url nil on-result)
+
+  channel
+  ))

@@ -12,6 +12,7 @@
                  [http-kit "2.3.0"]
                  [ring "1.9.6"]
                  [compojure "1.7.0"]
+                 [org.clojure/data.json "2.4.0"]
                  [com.taoensso/carmine "3.2.0"]]
 
 
