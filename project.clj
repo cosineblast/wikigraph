@@ -10,6 +10,8 @@
                  [org.jsoup/jsoup "1.15.3"]
                  [org.clojure/core.async "1.6.673"]
                  [http-kit "2.3.0"]
+                 [ring "1.9.6"]
+                 [compojure "1.7.0"]
                  [com.taoensso/carmine "3.2.0"]]
 
 

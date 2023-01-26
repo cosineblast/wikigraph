@@ -1,7 +1,7 @@
 (ns wiki-graph.reload)
 
 
-(defn r []
+(defn reload []
 
   (let [namespaces
         '{wiki-graph.fetch-refs :off
