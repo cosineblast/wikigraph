@@ -7,9 +7,9 @@
             ))
 
 
-(def is-halted (atom false))
+(def ^:dynamic *is-halted*)
 
-(def seen-refs (atom #{}))
+(def ^:dynamic *seen-refs*)
 
 (defn get-refs [job-channel]
   (a/go
@@ -38,9 +38,9 @@
   (a/go
 
     (graph/assoc job input-refs)
-    (swap! seen-refs conj job)
+    (swap! *seen-refs* conj job)
 
-    (loop [refs (filter (comp not @seen-refs) input-refs)]
+    (loop [refs (filter (comp not @*seen-refs*) input-refs)]
 
       (if-let [[ref & more] (seq refs)]
         (if (>! job-channel ref)
@@ -53,7 +53,7 @@
 
 (defn halt! [job-channel]
   (report "HALTING")
-  (reset! is-halted true)
+  (reset! *is-halted* true)
   (a/close! job-channel)
   )
 
@@ -69,7 +69,7 @@
     (loop [i 0]
       (report "Fetcher Starting")
 
-      (when (and (< i todo-count) (not @is-halted))
+      (when (and (< i todo-count) (not @*is-halted*))
 
         (do (report i "/" todo-count "jobs done.")
             (report (str "Aquiring job... [" i "/" todo-count "]"))
@@ -97,43 +97,36 @@
     ))
 
 
-(defn execute-search [& args]
+(defn execute-search [config]
 
-  (report "Program Starting")
+  (a/go
+    (report "Search Starting")
 
-  (reset! is-halted false)
+    (binding [*is-halted* (atom false)
+              *seen-refs* (atom #{})]
 
-  (reset! seen-refs #{})
+      (let [thread-count (:thread-count config 4)
+            todo-count (:todo-count config 100)
+            job-channel (a/chan (:channel-size config 20000))
+            initial-job "Clojure"
+            threads
+            (for [i (range thread-count)]
+              (with-thread-name (str "F" i)
+                (run-fetcher todo-count job-channel))
+              )]
 
-  (let [thread-count 4
-        todo-count 1000
-        job-channel (a/chan 650000)
-        initial-job "Clojure"
-        threads
-        (for [i (range thread-count)]
-               (with-thread-name (str "F" i)
-                 (run-fetcher todo-count job-channel))
-             )]
+        (dorun threads)
 
-    (dorun threads)
+        (report "Adding Job:" initial-job)
 
-    (report "Adding Job:" initial-job)
+        (>! job-channel initial-job)
 
-    (>!! job-channel initial-job)
+        (report "Job Added")
 
-    (report "Job Added")
+        (doseq [thread threads] (<! thread))
 
-    (doseq [thread threads] (<!! thread))
+        (a/close! job-channel)
 
-    (a/close! job-channel)
-
-    (report "Done!")
-    ))
-
-(defn channel-to-vector [channel]
-  (loop [result []]
-    (if-let [next (<!! channel)]
-      (recur (conj result next))
-      result
-      )
-    ))
+        (report "Done!")
+        )
+      )))

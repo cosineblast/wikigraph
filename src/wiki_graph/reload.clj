@@ -5,10 +5,10 @@
 
   (let [namespaces
         '{wiki-graph.fetch-refs :off
-          wiki-graph.core :off
-          wiki-graph.statistics :on
+          wiki-graph.core :on
+          wiki-graph.statistics :off
           wiki-graph.timing :off
-          wiki-graph.graph :on
+          wiki-graph.graph :off
           wiki-graph.search :on
           }
 
