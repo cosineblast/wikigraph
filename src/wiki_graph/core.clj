@@ -6,11 +6,10 @@
             [wiki-graph.reload :refer [r]]
             [wiki-graph.timing :refer [timing time!]]
             [wiki-graph.graph :as graph]
-            [wiki-graph.search-round :refer [execute-round]]
+            [wiki-graph.search :refer [execute-search]]
             )
 
   (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]]))
 
 (defn -main []
-  (execute-round)
-  )
+  (execute-search))

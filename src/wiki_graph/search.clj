@@ -1,4 +1,4 @@
-(ns wiki-graph.search-round
+(ns wiki-graph.search
   (:require [clojure.core.async :as a :refer [>! >!! <! <!!]])
 
   (:require [wiki-graph.graph :as graph]
@@ -97,7 +97,7 @@
     ))
 
 
-(defn execute-round [& args]
+(defn execute-search [& args]
 
   (report "Program Starting")
 

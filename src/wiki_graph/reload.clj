@@ -9,7 +9,7 @@
           wiki-graph.statistics :on
           wiki-graph.timing :off
           wiki-graph.graph :on
-          wiki-graph.search-round :on
+          wiki-graph.search :on
           }
 
         on-namespaces (for [[namespace mode] namespaces :when (= mode :on)]
