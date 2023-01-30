@@ -3,12 +3,14 @@
   (:require [wiki-graph.search :refer [execute-search]]
             [wiki-graph.reload :refer [reload]]
             [wiki-graph.statistics :as stats]
-            [wiki-graph.fetch-refs :as fetch]
+            [wiki-graph.fetch :as fetch]
             [wiki-graph.graph :as graph]
             [wiki-graph.ring-util :refer [wrap-access-control ok]])
 
   (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]]
             [clojure.data.json :as json]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as st]
 
             [org.httpkit.server :as http-kit]
             [ring.util.response :refer [response bad-request not-found]]
@@ -22,45 +24,47 @@
 
 (defn r [] (@stop) (reload))
 
-(defn on-successful-search-request [start-term config channel]
+(defn perform-search [input-config channel]
   (go
-    (let [on-notify
+    (let [config (into input-config
+                       {:task-count 4
+                        :pending-limit 100000
+                        })
+
+          on-notify
           (fn [[parent item]]
             (http-kit/send! channel
                             (json/write-str {:parent parent
                                              :item item})))
           ]
 
-      (<! (execute-search start-term config on-notify))
+      (<! (execute-search config on-notify))
 
       (http-kit/close channel)
 
       ))
   )
 
-(defn read-config [params]
+(defn read-input-config [params]
   (when-not (nil? params)
 
-    (let [[start-term task-count per-task channel-size should-slide]
-          (map params ["start" "tasks" "per_task" "channel_size" "slide"])
-          ]
-      (and start-term task-count per-task
-           {:start-term start-term
-             :task-count (Integer/parseInt task-count)
-             :per-task (Integer/parseInt per-task)
-             :channel-size (if (nil? channel-size) nil (Integer/parseInt channel-size))
-             :should-slide (if (nil? should-slide) false (Boolean/parseBoolean should-slide))})
+    (let [[initial-job job-count should-slide]
+          (map params ["start" "job_count" "slide"])]
+
+      {:initial-job initial-job
+       :job-count (Integer/parseInt job-count)
+       :should-slide (if (nil? should-slide) false (Boolean/parseBoolean should-slide))}
+
       )
 
-    )
-  )
+    ))
 
 (defn handle-search-request [request]
-  (let [config (read-config (:query-params request))
-        start-term (:start-term config)]
+  (let [input-config (read-input-config (:query-params request))
+        start-term (:initial-job input-config)]
 
     (cond
-      (or (nil? start-term) (nil? config)) (bad-request "Missing parameters")
+      (or (not start-term) (not input-config)) (do (println "UHH") (bad-request "Missing parameters"))
 
       (not
        (or (graph/get start-term)
@@ -71,7 +75,7 @@
       (http-kit/with-channel request channel
         (if (http-kit/websocket? channel)
 
-          (on-successful-search-request start-term config channel)
+          (perform-search input-config channel)
 
           (http-kit/close channel)
           )

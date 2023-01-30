@@ -1,15 +1,15 @@
-(ns wiki-graph.fetch-refs
+(ns wiki-graph.fetch
   (:import [org.jsoup Jsoup])
-  (:require [clojure.string :as s]
+  (:require [clojure.string :as string]
             [clojure.core.async :as a]
             [org.httpkit.client :as http]
-
-            )
-  )
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as st]
+            ))
 
 (declare load-refs)
 
-(defn remove-unwanted-tags [doc]
+(defn- remove-unwanted-tags [doc]
 
   (let [kill (fn [target]
                (->
@@ -38,25 +38,25 @@
 
   )
 
-(defn is-ok-tag [element]
+(defn- is-ok-tag [element]
 
   (let [href (.attr element "href")
         title (.attr element "title")
         content (.ownText element)]
 
     (and
-     (s/starts-with? href "/wiki/")
-     (not (s/includes? href ":" )))
+     (string/starts-with? href "/wiki/")
+     (not (string/includes? href ":" )))
     )
 
   )
 
-(defn tag-to-reference [tag]
+(defn- tag-to-reference [tag]
    (.substring (.attr tag "href") 6))
 
-(defn get-full-url [target] (str "http://en.wikipedia.org/wiki/" target))
+(defn- get-full-url [target] (str "http://en.wikipedia.org/wiki/" target))
 
-(defn load-refs [doc]
+(defn- load-refs [doc]
 
     (remove-unwanted-tags doc)
 
@@ -71,7 +71,7 @@
       )
   )
 
-(defn load-body [body] (load-refs (Jsoup/parse body)))
+(defn- load-body [body] (load-refs (Jsoup/parse body)))
 
 (defn fetch-wiki-refs-async [target]
 
@@ -95,8 +95,10 @@
 
     channel
     )
-
   )
+
+(s/fdef fetch-wiki-refs-async
+        :args (s/cat :target string?))
 
 (defn target-exists [target]
   (let [config {:timeout 800 :keepalive -1}
@@ -117,3 +119,6 @@
 
   channel
   ))
+
+(s/fdef target-exists
+        :args (s/cat :target string?))

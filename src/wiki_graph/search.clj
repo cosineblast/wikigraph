@@ -1,17 +1,20 @@
 (ns wiki-graph.search
-  (:require [clojure.core.async :as a :refer [>! >!! <! <!!]])
+  (:require [clojure.core.async :as a :refer [>! >!! <! <!!]]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as st])
 
   (:require [wiki-graph.graph :as graph]
-            [wiki-graph.fetch-refs :refer [fetch-wiki-refs-async]]
+            [wiki-graph.fetch :refer [fetch-wiki-refs-async]]
             [wiki-graph.report :refer [report with-thread-name]]
             ))
 
 
 (def ^:dynamic *is-halted*)
 (def ^:dynamic *seen-refs*)
+(def ^:dynamic *todo-count*)
 (def ^:dynamic *notify*)
 
-(defn get-refs [job-channel]
+(defn- get-refs [job-channel]
   (a/go
 
     (when-let [[parent job] (<! job-channel)]
@@ -34,7 +37,7 @@
       ))
   )
 
-(defn push-refs [job-channel job input-refs]
+(defn- push-refs [job-channel job input-refs]
   (a/go
 
     (graph/assoc job input-refs)
@@ -51,28 +54,28 @@
 
     ))
 
-(defn halt! [job-channel]
+(defn- halt! [job-channel]
   (report "HALTING")
   (reset! *is-halted* true)
   (a/close! job-channel)
   )
 
-(defn result-or-timeout [channel time]
+(defn- result-or-timeout [channel time]
   (a/go
     (first (a/alts! [channel
                      (a/go (<! (a/timeout time)) :timeout)
                      ]))
     ))
 
-(defn run-fetcher [todo-count job-channel]
+(defn- run-fetcher [job-channel]
   (a/go
     (loop [i 0]
       (report "Fetcher Starting")
 
-      (when (and (< i todo-count) (not @*is-halted*))
+      (when (and (>= (swap! *todo-count* dec) 0) (not @*is-halted*))
 
-        (do (report i "/" todo-count "jobs done.")
-            (report (str "Aquiring job... [" i "/" todo-count "]"))
+        (do (report i "jobs done.")
+            (report (str "Aquiring job... "))
 
             (if-let [[parent job refs] (<! (get-refs job-channel))]
 
@@ -99,34 +102,35 @@
     (report "Fetcher finished!")
     ))
 
-(defn start-fetchers [config]
-  (let [thread-count (:task-count config 4)
-        todo-count (:per-task config 25)
+(defn- start-fetchers [config]
+  (let [thread-count (:task-count config)
 
-        channel-size (or (:channel-size config) 50000)
+        channel-size (:pending-limit config)
         buffer-type (if (:should-slide config) a/sliding-buffer a/buffer)
         job-channel (a/chan (buffer-type channel-size))
 
         threads
         (for [i (range thread-count)]
           (with-thread-name (str "F" i)
-            (run-fetcher todo-count job-channel))
+            (run-fetcher job-channel))
           )]
 
     [(doall threads) job-channel])
   )
 
 
-(defn execute-search [initial-job config on-notification]
+(defn execute-search [config on-notification]
 
   (a/go
     (report "Search Starting")
 
     (binding [*is-halted* (atom false)
               *seen-refs* (atom #{})
+              *todo-count* (atom (:job-count config))
               *notify* on-notification]
 
-      (let [[threads job-channel] (start-fetchers config)]
+      (let [[threads job-channel] (start-fetchers config)
+            initial-job (:initial-job config)]
 
         (report "Adding Job:" initial-job)
 
@@ -140,6 +144,23 @@
 
         (report "Done!")
 
-        @*is-halted*)
+        (not @*is-halted*))
 
       )))
+
+(s/def ::initial-job string?)
+(s/def ::task-count int?)
+(s/def ::job-count int?)
+(s/def ::pending-limit int?)
+(s/def ::should-slide boolean?)
+
+(s/def ::config
+  (s/keys :req-un [::initial-job ::task-count ::job-count
+                   ::should-slide ::pending-limit]))
+
+(s/fdef execute-search
+  :args (s/cat :config ::config
+               :on-notification fn?)
+  )
+
+(st/instrument `execute-search)
