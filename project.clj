@@ -14,7 +14,8 @@
                  [compojure "1.7.0"]
                  [org.clojure/data.json "2.4.0"]
                  [com.taoensso/carmine "3.2.0"]
-                 [ring/ring-mock "0.4.0"]]
+                 [ring/ring-mock "0.4.0"]
+                 [metosin/malli "0.10.1"]]
 
 
   :main ^:skip-aot wiki-graph.core

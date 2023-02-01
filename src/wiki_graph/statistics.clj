@@ -1,6 +1,6 @@
-(ns wiki-graph.statistics)
-
-
+(ns wiki-graph.statistics
+  (:require [malli.core :as m])
+  )
 
 
 (defn compute-most-by [key data]
@@ -8,6 +8,9 @@
 
 (defn compute-least-by [key data]
   (apply min-key key data))
+
+(m/=> average-variance
+      [:=> [:cat [:sequential number?]] [:tuple number? number?]])
 
 (defn average-variance [stuff]
   (let [sum (apply + stuff)
@@ -20,8 +23,27 @@
     [average (- average-squares average)]
     ))
 
+
+
+(m/=> compute-average-variance-by
+      [:=> [:cat ifn? [:sequential :any]] [:tuple number? number?]])
+
 (defn compute-average-variance-by [key data]
   (average-variance (map key data)))
+
+(def Stats
+  [:map
+   [:maximum [:tuple :any number?]]
+   [:minimum [:tuple :any number?]]
+   [:average number?]
+   [:variance number?]
+   ]
+  )
+
+(m/=> get-statistics-by
+      [:=>
+       [:cat ifn? [:sequential [:tuple :any number?]]]
+       Stats])
 
 (defn get-statistics-by [key data]
 

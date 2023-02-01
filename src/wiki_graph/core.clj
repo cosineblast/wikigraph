@@ -5,12 +5,17 @@
             [wiki-graph.statistics :as stats]
             [wiki-graph.fetch :as fetch]
             [wiki-graph.graph :as graph]
-            [wiki-graph.ring-util :refer [wrap-access-control ok]])
+            [wiki-graph.ring-util :refer [wrap-access-control ok]]
+            [wiki-graph.util :refer [Chan]]
+
+            [wiki-graph.search :as search])
 
   (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]]
             [clojure.data.json :as json]
-            [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as st]
+
+            [malli.dev :as dev]
+            [malli.core :as m]
+            [malli.dev.pretty :as pretty]
 
             [org.httpkit.server :as http-kit]
             [ring.util.response :refer [response bad-request not-found]]
@@ -23,6 +28,11 @@
 (def stop (atom (fn [])))
 
 (defn r [] (@stop) (reload))
+
+(def InputConfig :any)
+
+
+(m/=> perform-search [:=> [:cat InputConfig Chan] Chan])
 
 (defn perform-search [input-config channel]
   (go
@@ -45,6 +55,13 @@
       ))
   )
 
+(def QueryParams :any)
+
+(m/=> read-input-config
+      [:=>
+       [:cat [:maybe QueryParams]]
+       [:maybe InputConfig]])
+
 (defn read-input-config [params]
   (when-not (nil? params)
 
@@ -58,6 +75,11 @@
       )
 
     ))
+
+(def Request :any)
+(def Response :any)
+
+(m/=> handle-search-request [:=> [:cat Request] Response])
 
 (defn handle-search-request [request]
   (let [input-config (read-input-config (:query-params request))

@@ -12,6 +12,7 @@
           wiki-graph.timing :on
           wiki-graph.report :on
           wiki-graph.core :on
+          wiki-graph.util :on
           }
 
         on-namespaces (for [[namespace mode] namespaces :when (= mode :on)]

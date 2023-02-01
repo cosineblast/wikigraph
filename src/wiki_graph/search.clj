@@ -1,18 +1,32 @@
 (ns wiki-graph.search
   (:require [clojure.core.async :as a :refer [>! >!! <! <!!]]
-            [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as st])
+            [malli.core :as m]
+            )
 
   (:require [wiki-graph.graph :as graph]
             [wiki-graph.fetch :refer [fetch-wiki-refs-async]]
             [wiki-graph.report :refer [report with-thread-name]]
-            ))
+            [wiki-graph.util :refer [Chan]]
+            )
+  )
+
+
+(def Config
+  [:map { :closed true }
+   [:initial-job :string]
+   [:task-count :int]
+   [:pending-limit :int]
+   [:should-slide :boolean]])
 
 
 (def ^:dynamic *is-halted*)
 (def ^:dynamic *seen-refs*)
 (def ^:dynamic *todo-count*)
 (def ^:dynamic *notify*)
+
+(def Job :string)
+
+(m/=> get-refs [:=> [:cat Chan] [:tuple Job Job [:set Job]]])
 
 (defn- get-refs [job-channel]
   (a/go
@@ -37,6 +51,9 @@
       ))
   )
 
+(m/=> push-refs
+      [:=> [:cat Chan Job [:set Job]] Chan])
+
 (defn- push-refs [job-channel job input-refs]
   (a/go
 
@@ -54,11 +71,17 @@
 
     ))
 
+(m/=> halt! [:=> [:cat Chan] :nil])
+
 (defn- halt! [job-channel]
   (report "HALTING")
   (reset! *is-halted* true)
   (a/close! job-channel)
   )
+
+;; TODO: use core.async.offer! instead of tiemouts.
+
+(m/=> result-or-timeout [:=> [:cat Chan :int] Chan])
 
 (defn- result-or-timeout [channel time]
   (a/go
@@ -66,6 +89,8 @@
                      (a/go (<! (a/timeout time)) :timeout)
                      ]))
     ))
+
+(m/=> run-fetcher [:=> [:cat Chan] :nil])
 
 (defn- run-fetcher [job-channel]
   (a/go
@@ -102,6 +127,9 @@
     (report "Fetcher finished!")
     ))
 
+
+(m/=> start-fetchers [:=> [:cat Config] [:tuple :any :any]])
+
 (defn- start-fetchers [config]
   (let [thread-count (:task-count config)
 
@@ -118,6 +146,8 @@
     [(doall threads) job-channel])
   )
 
+
+(m/=> execute-search [:=> [:cat Config fn?] :nil])
 
 (defn execute-search [config on-notification]
 
@@ -148,19 +178,3 @@
 
       )))
 
-(s/def ::initial-job string?)
-(s/def ::task-count int?)
-(s/def ::job-count int?)
-(s/def ::pending-limit int?)
-(s/def ::should-slide boolean?)
-
-(s/def ::config
-  (s/keys :req-un [::initial-job ::task-count ::job-count
-                   ::should-slide ::pending-limit]))
-
-(s/fdef execute-search
-  :args (s/cat :config ::config
-               :on-notification fn?)
-  )
-
-(st/instrument `execute-search)

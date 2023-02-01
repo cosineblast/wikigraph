@@ -1,6 +1,7 @@
 (ns wiki-graph.graph
   (:refer-clojure :exclude [get assoc])
-  (:require [taoensso.carmine :as car :refer [wcar]]))
+  (:require [taoensso.carmine :as car :refer [wcar]]
+            [malli.core :as m]))
 
 (defonce redis-pool (car/connection-pool {}))
 
@@ -15,12 +16,20 @@
 
 (def result-graph (atom {}))
 
+
+(m/=> get [:=> [:cat :string] [:set :string]])
+
 (defn get [job]
   (wcar* (car/get (str "wiki:" job)))
   )
 
+(m/=> assoc [:=> [:cat :string [:set :string]] :nil])
+
 (defn assoc [job refs]
-  (wcar* (car/set (str "wiki:" job) refs)))
+  (wcar* (car/set (str "wiki:" job) refs))
+  nil)
+
+(m/=> list-counts [:=> [:cat] [:sequential [:tuple :string :int]]])
 
 (defn list-counts []
   (let [keys (wcar* (car/keys "wiki:*"))
