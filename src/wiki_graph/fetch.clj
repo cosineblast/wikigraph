@@ -1,11 +1,17 @@
 (ns wiki-graph.fetch
   (:import [org.jsoup Jsoup])
+
   (:require [clojure.string :as string]
             [clojure.core.async :as a]
             [org.httpkit.client :as http]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
-            ))
+
+            [malli.core :as m]
+            )
+
+  (:require [wiki-graph.util :refer [Chan]])
+  )
 
 (declare load-refs)
 
@@ -56,22 +62,26 @@
 
 (defn- get-full-url [target] (str "http://en.wikipedia.org/wiki/" target))
 
-(defn- load-refs [doc]
+(m/=> get-body-refs [:=> [:cat :string] [:set :string]])
 
-    (remove-unwanted-tags doc)
+(defn- get-body-refs [body]
 
-    (let [tags (.select doc "#bodyContent a")]
+  (let [doc (Jsoup/parse body)
+        _ (remove-unwanted-tags doc)
+        tags (.select doc "#bodyContent a")]
 
-      (->> tags
-           .iterator
-           iterator-seq
-           (filter is-ok-tag)
-           (map tag-to-reference)
-           (into #{}))
-      )
-  )
 
-(defn- load-body [body] (load-refs (Jsoup/parse body)))
+    (->> tags
+         .iterator
+         iterator-seq
+         (filter is-ok-tag)
+         (map tag-to-reference)
+         (into #{}))
+
+    ))
+
+
+(m/=> fetch-wiki-refs-async [:=> [:cat :string] Chan])
 
 (defn fetch-wiki-refs-async [target]
 
@@ -85,7 +95,7 @@
           (cond
             error (a/put! channel { :error error })
             (not= status 200) (a/put! channel { :error status } )
-            :else (a/put! channel { :value (load-body body) })
+            :else (a/put! channel { :value (get-body-refs body) })
             )
 
           (a/close! channel)
@@ -97,8 +107,7 @@
     )
   )
 
-(s/fdef fetch-wiki-refs-async
-        :args (s/cat :target string?))
+(m/=> target-exists [:=> [:cat :string] Chan])
 
 (defn target-exists [target]
   (let [config {:timeout 800 :keepalive -1}
@@ -119,6 +128,3 @@
 
   channel
   ))
-
-(s/fdef target-exists
-        :args (s/cat :target string?))

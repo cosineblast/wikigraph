@@ -3,14 +3,16 @@
 
 (def ^:dynamic *thread-name* nil)
 
+(def output (agent nil))
 
 (defn report [& args]
 
   (let [name (or *thread-name* "main")]
 
-     (locking report
-       ;;(apply println (cons (str "[" name "]") args))
-       )
+     (send output (fn [_] (apply println (cons (str "[" name "]") args))))
+
+     nil
+
      ))
 
 (defmacro with-thread-name [name & body]

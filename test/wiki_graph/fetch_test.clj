@@ -1,18 +1,25 @@
 (ns wiki-graph.fetch-test
   (:require [clojure.test :as t :refer :all]
             [wiki-graph.core :refer :all]
-            [wiki-graph.fetch :refer [fetch-wiki-refs-async]]
+            [wiki-graph.fetch :refer
+             [target-exists fetch-wiki-refs-async]]
             [wiki-graph.graph :as graph]
             [clojure.core.async :as a :refer [<!!]]
             ))
 
-;; TODO: write tests for wiki-graph.fetch/target-exists
+(def non-existent-page "__ThisWikipediaPageDoesNotExist__")
+
+(deftest target-exists-reports-non-existent
+  (testing "target-exists reports non-existent-pages."
+
+    (is (not (<!! (target-exists non-existent-page))))
+
+    ))
 
 (deftest fetch-async-succeeds
-  (testing "Fetches a page successfully."
+  (testing "fetch-wiki-refs-async fetches pages."
 
-    (let [channel (wiki-graph.fetch/fetch-wiki-refs-async "Communicating_sequential_processes")
-          result (<!! channel)]
+    (let [result (<!! (fetch-wiki-refs-async "Communicating_sequential_processes"))]
 
       (is (not (:error result)))
 
@@ -25,12 +32,9 @@
   )
 
 (deftest fetch-async-reports-error
-  (testing "Fetches a page successfully."
+  (testing "fetch-wiki-refs-async reports errors."
 
-    (let [channel (wiki-graph.fetch/fetch-wiki-refs-async
-                   "ThisThingyDoesNOTExist")
-
-          result (<!! channel)]
+    (let [result (<!! (fetch-wiki-refs-async non-existent-page))]
 
       (is (not (:value result)))
 
