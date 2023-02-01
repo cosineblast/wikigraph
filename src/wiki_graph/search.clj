@@ -63,10 +63,10 @@
     (loop [refs (filter (comp not @*seen-refs*) input-refs)]
 
       (if-let [[ref & more] (seq refs)]
-        (if (>! job-channel [job ref])
-          (recur more)
-          :closed)
-        :success
+        (when (a/offer! job-channel [job ref])
+          (recur more))
+
+        true
         ))
 
     ))
@@ -78,17 +78,6 @@
   (reset! *is-halted* true)
   (a/close! job-channel)
   )
-
-;; TODO: use core.async.offer! instead of tiemouts.
-
-(m/=> result-or-timeout [:=> [:cat Chan :int] Chan])
-
-(defn- result-or-timeout [channel time]
-  (a/go
-    (first (a/alts! [channel
-                     (a/go (<! (a/timeout time)) :timeout)
-                     ]))
-    ))
 
 (m/=> run-fetcher [:=> [:cat Chan] :nil])
 
@@ -107,20 +96,18 @@
               (do
                 (report "Refs Fetched! Putting refs...")
 
-                (let [result
-                      (<! (result-or-timeout
-                           (push-refs job-channel job refs)
-                           100))]
+                (let [is-success (<! (push-refs job-channel job refs))]
 
-                  (if (= :success result)
+                  (if is-success
                     (do (report "Job Done!")
                         (*notify* [parent job])
                         (recur (inc i)))
-                    (do (report "Push Failed:" result) (halt! job-channel))
+
+                    (do (report "Push Failed") (halt! job-channel))
                     ))
                 )
 
-              (do (halt! job-channel))
+              (halt! job-channel)
               )
             )))
 
