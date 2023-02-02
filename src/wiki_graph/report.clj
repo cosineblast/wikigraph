@@ -5,15 +5,18 @@
 
 (def output (agent nil))
 
+(def on false)
+
 (defn report [& args]
 
   (let [name (or *thread-name* "main")]
 
-     (send output (fn [_] (apply println (cons (str "[" name "]") args))))
+    (when on
+      (send output (fn [_] (apply println (cons (str "[" name "]") args))))  )
 
-     nil
+    nil
 
-     ))
+    ))
 
 (defmacro with-thread-name [name & body]
   `(binding [*thread-name* ~name] ~@body)
