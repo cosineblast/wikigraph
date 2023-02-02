@@ -55,15 +55,19 @@
       ))
   )
 
-(def QueryParams :any)
+(def QueryParams
+  [:map
+   ["start" :string]
+   ["job_count" #"\d+" ]
+   ["slide" #"true|false"]])
 
 (m/=> read-input-config
       [:=>
-       [:cat [:maybe QueryParams]]
+       [:cat [:maybe [:map-of :string :string]]]
        [:maybe InputConfig]])
 
 (defn read-input-config [params]
-  (when-not (nil? params)
+  (when (m/validate QueryParams params)
 
     (let [[initial-job job-count should-slide]
           (map params ["start" "job_count" "slide"])]
@@ -79,31 +83,35 @@
 (def Request :any)
 (def Response :any)
 
-(m/=> handle-search-request [:=> [:cat Request] Response])
+(m/=> handle-search-request [:=> [:cat Request] Chan])
 
 (defn handle-search-request [request]
-  (let [input-config (read-input-config (:query-params request))
-        start-term (:initial-job input-config)]
+  (go
+    (let [input-config (read-input-config (:query-params request))
+          start-term (:initial-job input-config)]
 
-    (cond
-      (or (not start-term) (not input-config)) (do (println "UHH") (bad-request "Missing parameters"))
+      (cond
 
-      (not
-       (or (graph/get start-term)
+        (not input-config)
+        (do (bad-request "Invalid query params."))
 
-           ;; TODO: improve this
-           (<!! (fetch/target-exists start-term)))) (not-found (str "Unknown page " start-term))
-      :else
-      (http-kit/with-channel request channel
-        (if (http-kit/websocket? channel)
+        (not
+         (or (graph/get start-term)
 
-          (perform-search input-config channel)
+             (<! (fetch/target-exists start-term))))
+        (not-found (str "Unknown page " start-term))
 
-          (http-kit/close channel)
-          )
-        ))
+        :else
+        (http-kit/with-channel request channel
+          (if (http-kit/websocket? channel)
 
-    )
+            (<! (perform-search input-config channel))
+
+            (http-kit/close channel)
+            )
+          ))
+
+      ))
 
 
   )
@@ -124,8 +132,7 @@
 
    ;; TODO: use compojure-api
 
-   (GET "/search" request
-        (handle-search-request request))
+   (GET "/search" request (<!! (handle-search-request request)))
    )
   )
 
@@ -138,4 +145,5 @@
 
 
 (defn -main []
+  (@stop)
   (reset! stop (http-kit/run-server app { :port 8001 })))
