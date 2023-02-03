@@ -17,17 +17,24 @@
             [malli.core :as m]
             [malli.dev.pretty :as pretty]
 
+            [reitit.core :as re]
+            [reitit.ring :as ring]
+
             [org.httpkit.server :as http-kit]
             [ring.util.response :refer [response bad-request not-found]]
 
             [ring.middleware.params :refer [wrap-params]]
-            [compojure.core :refer [GET routes]]
+
             ))
 
 
-(def stop (atom (fn [])))
+(def quit (atom (fn [])))
 
-(defn r [] (@stop) (reload))
+(defn r
+  ([] (@quit) (reload))
+  ([namespace]
+   (@quit)
+   (require namespace :reload)))
 
 (def InputConfig :any)
 
@@ -90,6 +97,8 @@
     (let [input-config (read-input-config (:query-params request))
           start-term (:initial-job input-config)]
 
+      (println "Request!")
+
       (cond
 
         (not input-config)
@@ -116,34 +125,32 @@
 
   )
 
-(def app-routes
-  (routes
-   (GET "/stats" []
+(defn handle-stats-request [request]
 
-        (let [counts (graph/list-counts)
-              word-stats (stats/get-statistics-by (comp count first) counts)
-              children-stats (stats/get-statistics-by second counts)
-              json-output (json/write-str { :words word-stats :children children-stats })
-              ]
+  (let [counts (graph/list-counts)
+        word-stats (stats/get-statistics-by (comp count first) counts)
+        children-stats (stats/get-statistics-by second counts)
+        json-output (json/write-str { :words word-stats :children children-stats })
+        ]
 
-          (ok json-output)
+    (ok json-output)
 
-          ))
+    )
+  )
 
-   ;; TODO: use compojure-api
-
-   (GET "/search" request (<!! (handle-search-request request)))
-   )
+(def router
+  (ring/router
+   [["/stats" { :get handle-stats-request }]
+    ["/search" { :get (comp <!! handle-search-request) }]] )
   )
 
 (def app
-  (-> app-routes
+  (-> (ring/ring-handler router)
       wrap-params
       wrap-access-control)
   )
 
 
-
 (defn -main []
-  (@stop)
-  (reset! stop (http-kit/run-server app { :port 8001 })))
+  (@quit)
+  (reset! quit (http-kit/run-server app { :port 8001 })))
