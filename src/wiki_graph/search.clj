@@ -14,6 +14,7 @@
 (def Config
   [:map { :closed true }
    [:initial-job :string]
+   [:job-count :int]
    [:task-count :int]
    [:pending-limit :int]
    [:should-slide :boolean]])
@@ -26,9 +27,10 @@
 
 (def Job :string)
 
-(m/=> get-refs [:=> [:cat Chan] [:tuple Job Job [:set Job]]])
+(m/=> get-refs [:=> [:cat Chan] Chan])
 
-(defn- get-refs [job-channel]
+(defn get-refs [job-channel]
+
   (a/go
 
     (when-let [[parent job] (<! job-channel)]
@@ -79,7 +81,7 @@
   (a/close! job-channel)
   )
 
-(m/=> run-fetcher [:=> [:cat Chan] :nil])
+(m/=> run-fetcher [:=> [:cat Chan] Chan])
 
 (defn- run-fetcher [job-channel]
   (a/go
@@ -134,7 +136,7 @@
   )
 
 
-(m/=> execute-search [:=> [:cat Config fn?] :nil])
+(m/=> execute-search [:=> [:cat Config fn?] Chan])
 
 (defn execute-search [config on-notification]
 
