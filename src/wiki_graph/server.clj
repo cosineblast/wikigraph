@@ -4,7 +4,7 @@
             [wiki-graph.fetch :as fetch]
             [wiki-graph.graph :as graph]
             [wiki-graph.ring-util :refer [wrap-access-control ok]]
-            [wiki-graph.util :refer [Chan]]
+            [wiki-graph.util :refer [Chan Deferred]]
 
             [wiki-graph.search :as search])
 
@@ -22,16 +22,24 @@
             [ring.middleware.params :refer [wrap-params]]
 
             [muuntaja.middleware]
+
+            [manifold.deferred :as d :refer [let-flow]]
             ))
+
+(defn deferred-of [x]
+  (let [result (d/deferred)]
+    (d/success! result x)
+    result
+    )
+  )
 
 
 (def InputConfig :any)
 
 
-(m/=> perform-search [:=> [:cat InputConfig Chan] Chan])
+(m/=> perform-search [:=> [:cat InputConfig :any] Deferred])
 
 (defn perform-search [input-config channel]
-  (go
     (let [config (into input-config
                        {:task-count 4
                         :pending-limit 100000
@@ -42,13 +50,19 @@
             (http-kit/send! channel
                             (json/write-str {:parent parent
                                              :item item})))
+
+          on-result (d/deferred)
           ]
 
-      (<! (execute-search config on-notify))
 
-      (http-kit/close channel)
 
-      ))
+      (go (<! (execute-search config on-notify))
+          (http-kit/close channel)
+          (d/success! on-result nil))
+
+      on-result
+
+      )
   )
 
 (def QueryParams
@@ -79,40 +93,45 @@
 (def Request :any)
 (def Response :any)
 
-(m/=> handle-search-request [:=> [:cat Request] Chan])
+(defn deferred-from [channel]
+  (let [result (d/deferred)]
+    (go (d/success! result (<! channel)))
+    result
+    ))
+
+(defn page-exists [page]
+  (if (graph/get page)
+    (deferred-of true)
+    (deferred-from (fetch/target-exists page))
+    ))
+
 
 (defn handle-search-request [request]
-  (go
-    (let [input-config (read-input-config (:query-params request))
-          start-term (:initial-job input-config)]
+  (let-flow [input-config (read-input-config (:query-params request))
+             start-term (:initial-job input-config)]
 
-      (println "Request!")
+    (println "Request!")
 
-      (cond
+    (if-not input-config
+      (bad-request "Invalid query params.")
 
-        (not input-config)
-        (do (bad-request "Invalid query params."))
+      (let-flow [exists (page-exists start-term)]
 
-        (not
-         (or (graph/get start-term)
+        (if-not exists
+          (not-found (str "Unknown page " start-term))
 
-             (<! (fetch/target-exists start-term))))
-        (not-found (str "Unknown page " start-term))
+          (http-kit/with-channel request channel
+            (if (http-kit/websocket? channel)
 
-        :else
-        (http-kit/with-channel request channel
-          (if (http-kit/websocket? channel)
+              (perform-search input-config channel)
 
-            (<! (perform-search input-config channel))
-
-            (http-kit/close channel)
+              (http-kit/close channel)
+              )
             )
-          ))
-
-      ))
-
-
-  )
+          )
+        )
+      )
+    ))
 
 (defn handle-stats-request [request]
 
@@ -133,7 +152,7 @@
      {:get handle-stats-request
       :middleware [muuntaja.middleware/wrap-format]}]
 
-    ["/search" {:get (comp <!! handle-search-request)}]] )
+    ["/search" {:get (comp deref handle-search-request)}]] )
   )
 
 (def app

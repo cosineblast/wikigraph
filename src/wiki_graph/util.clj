@@ -14,6 +14,10 @@
             :description "A clojure async ManyToManyChannel."}
            chan?])
 
+(def Deferred :any)
+
+(def Stream :any)
+
 (defn offer-onto-chan
   "Puts the contents of coll into the supplied channel with offer!.
 

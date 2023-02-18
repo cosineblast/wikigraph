@@ -18,6 +18,8 @@
                  [metosin/malli "0.10.1"]
                  [metosin/reitit "0.5.18"]
                  [metosin/muuntaja "0.6.8"]
+
+                 [manifold "0.3.0"]
                  ]
 
 
