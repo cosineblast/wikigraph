@@ -14,19 +14,15 @@
             :description "A clojure async ManyToManyChannel."}
            chan?])
 
-(m/=> offer-onto-chan
-      [:=> [:cat Chan [:sequential :any]] Chan])
-
 (defn offer-onto-chan
   "Puts the contents of coll into the supplied channel with offer!.
 
-
+  If the close? argument is true (the default),
+  the function closes the channel before returning.
 
   Returns true if and only if all elements of coll
   where successfully offered onto the channel.
   "
-
-  ([channel coll] (offer-onto-chan channel coll true))
 
   ([channel coll close?]
 
@@ -46,4 +42,7 @@
 
      result
      )
-   ))
+   )
+
+  ([channel coll] (offer-onto-chan channel coll true))
+  )

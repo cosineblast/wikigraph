@@ -1,12 +1,12 @@
 (ns wiki-graph.search
-  (:require [clojure.core.async :as a :refer [>! >!! <! <!!]]
+  (:require [clojure.core.async :as a :refer [>! >!! <! <!! go]]
             [malli.core :as m]
             )
 
   (:require [wiki-graph.graph :as graph]
             [wiki-graph.fetch :refer [fetch-wiki-refs-async]]
             [wiki-graph.report :refer [report with-thread-name]]
-            [wiki-graph.util :refer [Chan]]
+            [wiki-graph.util :as util :refer [Chan]]
             )
   )
 
@@ -62,14 +62,10 @@
     (graph/assoc job input-refs)
     (swap! *seen-refs* conj job)
 
-    (loop [refs (filter (comp not @*seen-refs*) input-refs)]
+    (let [stuff (for [ref input-refs :when (not (@*seen-refs* ref))] [job ref])]
 
-      (if-let [[ref & more] (seq refs)]
-        (when (a/offer! job-channel [job ref])
-          (recur more))
-
-        true
-        ))
+      (util/offer-onto-chan job-channel stuff false)
+      )
 
     ))
 
