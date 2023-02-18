@@ -2,12 +2,14 @@
   (:import [org.jsoup Jsoup])
 
   (:require [clojure.string :as string]
-            [clojure.core.async :as a]
+            [clojure.core.async :as a :refer [go]]
             [org.httpkit.client :as http]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as st]
 
             [malli.core :as m]
+
+            [manifold.deferred :as d]
             )
 
   (:require [wiki-graph.util :refer [Chan]])
@@ -81,50 +83,91 @@
     ))
 
 
+(declare target-exists-deferred
+         fetch-wiki-refs-deferred)
+
 (m/=> fetch-wiki-refs-async [:=> [:cat :string] Chan])
 
 (defn fetch-wiki-refs-async [target]
 
-  (let [config {:timeout 800 :keepalive -1}
-        channel (a/chan 1)
+  (let [channel (a/chan 1)]
+
+    (d/on-realized
+     (fetch-wiki-refs-deferred target)
+     (fn [value]
+       (a/put! channel {:value value})
+       (a/close! channel)
+       )
+     (fn [error]
+       (a/put! channel {:error error})
+       (a/close! channel)
+       )
+     )
+
+    channel
+    )
+
+  )
+
+
+(defn fetch-wiki-refs-deferred [target]
+
+  (let [deferred (d/deferred)
         url (get-full-url target)
 
         on-result
         (fn [{:keys [error status headers body]}]
 
           (cond
-            error (a/put! channel { :error error })
-            (not= status 200) (a/put! channel { :error status } )
-            :else (a/put! channel { :value (get-body-refs body) })
-            )
+            error
+            (d/error! deferred error)
 
-          (a/close! channel)
+            (not= status 200)
+            (d/error! deferred status)
+
+            :else
+            (d/success! deferred (get-body-refs body) )
+            )
           )]
 
     (http/get url nil on-result)
 
-    channel
+    deferred
     )
   )
+
 
 (m/=> target-exists [:=> [:cat :string] Chan])
 
 (defn target-exists [target]
-  (let [config {:timeout 800 :keepalive -1}
-       channel (a/chan 1)
-       url (get-full-url target)
+  (let [channel (a/chan 1)]
 
-       on-result
-       (fn [{:keys [error status headers body]}]
+    (d/on-realized
+     (target-exists-deferred target)
+     (fn [value]
+       (a/put! channel value)
+       (a/close! channel)
+       )
+     (fn [error] (go (throw error))
+       (a/close! channel)
+       )
+     )
 
-         (if (or error (not= status 200))
-           (a/put! channel false)
-           (a/put! channel true))
+    channel
+    ))
 
-         (a/close! channel)
-         )]
+(defn target-exists-deferred [target]
+  (let [deferred (d/deferred)
+        url (get-full-url target)
 
-  (http/get url nil on-result)
+        on-result
+        (fn [{:keys [error status headers body]}]
 
-  channel
-  ))
+          (d/success! deferred (not (or error (not= status 200))))
+
+          )]
+
+    (http/get url nil on-result)
+
+    deferred
+    ))
