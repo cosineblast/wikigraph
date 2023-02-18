@@ -20,6 +20,8 @@
 
             [ring.util.response :refer [response bad-request not-found]]
             [ring.middleware.params :refer [wrap-params]]
+
+            [muuntaja.middleware]
             ))
 
 
@@ -127,8 +129,11 @@
 
 (def router
   (ring/router
-   [["/stats" { :get handle-stats-request }]
-    ["/search" { :get (comp <!! handle-search-request) }]] )
+   [["/stats"
+     {:get handle-stats-request
+      :middleware [muuntaja.middleware/wrap-format]}]
+
+    ["/search" {:get (comp <!! handle-search-request)}]] )
   )
 
 (def app

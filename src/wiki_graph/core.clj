@@ -6,7 +6,7 @@
             ))
 
 
-(def quit (atom (fn [])))
+(defonce quit (atom (fn [])))
 
 (defn r
   ([namespace]

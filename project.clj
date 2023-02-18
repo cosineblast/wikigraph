@@ -16,7 +16,9 @@
                  [com.taoensso/carmine "3.2.0"]
                  [ring/ring-mock "0.4.0"]
                  [metosin/malli "0.10.1"]
-                 [metosin/reitit "0.5.18"]]
+                 [metosin/reitit "0.5.18"]
+                 [metosin/muuntaja "0.6.8"]
+                 ]
 
 
   :main ^:skip-aot wiki-graph.core
