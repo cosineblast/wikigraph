@@ -1,6 +1,6 @@
 (ns wiki-graph.server-test
   (:require  [clojure.test :as t :refer :all]
-             [wiki-graph.core :refer [app]]
+             [wiki-graph.server :refer [app]]
              [ring.mock.request :as mock]))
 
 
