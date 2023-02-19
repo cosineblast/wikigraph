@@ -80,7 +80,6 @@
     (fetch/target-exists-deferred page)
     ))
 
-
 (defn handle-search-request [request]
   (let-flow [parameters (-> request :parameters :query)
              start-term (:start parameters)]

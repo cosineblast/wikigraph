@@ -1,0 +1,4 @@
+{:lint-as {manifold.deferred/let-flow clojure.core/let
+           manifold.deferred/loop clojure.core/loop}
+ :hooks {:analyze-call {org.httpkit.server/with-channel hooks.with-channel/with-channel}}
+ }

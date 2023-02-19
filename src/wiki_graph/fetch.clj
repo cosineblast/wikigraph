@@ -155,7 +155,7 @@
         url (get-full-url target)
 
         on-result
-        (fn [{:keys [error status headers body]}]
+        (fn [{:keys [error status]}]
 
           (d/success! deferred (not (or error (not= status 200))))
 
