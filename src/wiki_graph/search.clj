@@ -1,5 +1,5 @@
 (ns wiki-graph.search
-  (:require [clojure.core.async :as a :refer [>! >!! <! <!! go]]
+  (:require [clojure.core.async :as a :refer [>! <! go]]
             [malli.core :as m]
             )
 
@@ -8,7 +8,6 @@
             [wiki-graph.report :refer [report with-thread-name]]
             [wiki-graph.util :as util :refer [Chan]]
 
-            [manifold.stream :as s]
             [manifold.deferred :as d]
             )
   )
@@ -89,28 +88,27 @@
 
       (when (and (>= (swap! *todo-count* dec) 0) (not @*is-halted*))
 
-        (do (report i "jobs done.")
-            (report (str "Aquiring job... "))
+        (report i "jobs done.")
+        (report (str "Aquiring job... "))
 
-            (if-let [[parent job refs] (<! (get-refs job-channel))]
+        (if-let [[parent job refs] (<! (get-refs job-channel))]
 
-              (do
-                (report "Refs Fetched! Putting refs...")
+          (do
+            (report "Refs Fetched! Putting refs...")
 
-                (let [is-success (<! (push-refs job-channel job refs))]
+            (let [is-success (<! (push-refs job-channel job refs))]
 
-                  (if is-success
-                    (do (report "Job Done!")
-                        (*notify* [parent job])
-                        (recur (inc i)))
+              (if is-success
+                (do (report "Job Done!")
+                    (*notify* [parent job])
+                    (recur (inc i)))
 
-                    (do (report "Push Failed") (halt! job-channel))
-                    ))
-                )
+                (do (report "Push Failed") (halt! job-channel))
+                ))
+            )
 
-              (halt! job-channel)
-              )
-            )))
+          (halt! job-channel)
+          )))
 
     (report "Fetcher finished!")
     ))
@@ -135,7 +133,7 @@
   )
 
 
-(m/=> execute-search [:=> [:cat Config fn?] Chan])
+(m/=> execute-search-async [:=> [:cat Config fn?] Chan])
 
 (defn- execute-search-async [config on-notification]
 

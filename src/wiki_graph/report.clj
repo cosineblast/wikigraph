@@ -5,7 +5,7 @@
 
 (def output (agent nil))
 
-(def on false)
+(def on true)
 
 (defn report [& args]
 

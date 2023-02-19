@@ -1,5 +1,5 @@
 (ns wiki-graph.server-test
-  (:require  [clojure.test :as t :refer :all]
+  (:require  [clojure.test :as t :refer [deftest is]]
              [wiki-graph.server :refer [app]]
              [ring.mock.request :as mock]))
 

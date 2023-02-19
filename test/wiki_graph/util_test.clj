@@ -1,7 +1,7 @@
 (ns wiki-graph.util-test
   (:require [wiki-graph.util :as sut :refer [offer-onto-chan]]
-            [clojure.test :refer :all]
-            [clojure.core.async :as a :refer [>! >!! <! <!!]]))
+            [clojure.test :refer [deftest is testing]]
+            [clojure.core.async :as a :refer [<!!]]))
 
 (defn or-timeout
   ([time channel]

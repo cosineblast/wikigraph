@@ -1,9 +1,9 @@
 (ns wiki-graph.fetch-test
-  (:require [clojure.test :as t :refer :all]
-            [wiki-graph.core :refer :all]
+  (:require [clojure.test :as t :refer [deftest testing is]]
+
             [wiki-graph.fetch :refer
              [target-exists fetch-wiki-refs-async]]
-            [wiki-graph.graph :as graph]
+
             [clojure.core.async :as a :refer [<!!]]
             ))
 

@@ -4,13 +4,12 @@
             [wiki-graph.fetch :as fetch]
             [wiki-graph.graph :as graph]
             [wiki-graph.ring-util :refer [wrap-access-control ok]]
-            [wiki-graph.util :refer [Chan Deferred]]
+            [wiki-graph.util :refer [Deferred]]
 
-            [wiki-graph.search :as search])
+            )
 
   (:require [clojure.data.json :as json]
 
-            [malli.dev :as dev]
             [malli.core :as m]
 
             [reitit.ring :as ring]
@@ -20,7 +19,7 @@
 
             [org.httpkit.server :as http-kit]
 
-            [ring.util.response :refer [response bad-request not-found]]
+            [ring.util.response :refer [not-found]]
             [ring.middleware.params :refer [wrap-params]]
 
             [muuntaja.middleware]
@@ -103,7 +102,7 @@
       )
     ))
 
-(defn handle-stats-request [request]
+(defn handle-stats-request [_]
 
   (let [counts (graph/list-counts)
         word-stats (stats/get-statistics-by (comp count first) counts)

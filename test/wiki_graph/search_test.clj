@@ -1,11 +1,7 @@
 (ns wiki-graph.search-test
   (:require [wiki-graph.search :as sut]
-            [clojure.test :as t :refer :all]
-            [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as st]
-            [clojure.core.async :refer [<!!]]))
-
-(st/instrument)
+            [clojure.test :as t :refer [deftest is testing]]
+            ))
 
 (deftest search-succeeds
   (testing "Search succeeds without a halt on basic request"
@@ -59,10 +55,10 @@
 
           on-job (fn [_] (swap! done-count inc))
 
-          success @(sut/execute-search config identity)]
+          success @(sut/execute-search config on-job)]
 
       (is success)
 
-      (= done-count 60) ; (* task-count per-task)
+      (is (= @done-count 30)) ; (* task-count per-task)
       )
     ))

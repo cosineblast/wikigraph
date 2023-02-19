@@ -4,11 +4,7 @@
   (:require [clojure.string :as string]
             [clojure.core.async :as a :refer [go]]
             [org.httpkit.client :as http]
-            [clojure.spec.alpha :as s]
-            [clojure.spec.test.alpha :as st]
-
             [malli.core :as m]
-
             [manifold.deferred :as d]
             )
 
@@ -48,9 +44,7 @@
 
 (defn- is-ok-tag [element]
 
-  (let [href (.attr element "href")
-        title (.attr element "title")
-        content (.ownText element)]
+  (let [href (.attr element "href")]
 
     (and
      (string/starts-with? href "/wiki/")
@@ -116,7 +110,7 @@
         url (get-full-url target)
 
         on-result
-        (fn [{:keys [error status headers body]}]
+        (fn [{:keys [error status body]}]
 
           (cond
             error
