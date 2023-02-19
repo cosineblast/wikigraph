@@ -14,6 +14,9 @@
             [malli.core :as m]
 
             [reitit.ring :as ring]
+            [reitit.coercion.malli]
+            [reitit.ring.coercion :as rrc]
+            [reitit.ring.middleware.exception]
 
             [org.httpkit.server :as http-kit]
 
@@ -38,17 +41,22 @@
 
 (m/=> perform-search [:=> [:cat InputConfig :any] Deferred])
 
-(defn perform-search [input-config channel]
-  (let [config (into input-config
-                     {:task-count 4
-                      :pending-limit 100000
-                      })
+(defn parameters-to-config [parameters]
+  {:initial-job (:start parameters)
+   :job-count (:job_count parameters)
+   :should-slide (:slide parameters)
+   :task-count 4
+   :pending-limit 100000
+
+   })
+
+(defn perform-search [parameters channel]
+  (let [config (parameters-to-config parameters)
 
         on-notify
         (fn [[parent item]]
-          (http-kit/send! channel
-                          (json/write-str {:parent parent
-                                           :item item})))
+          (http-kit/send!
+           channel (json/write-str {:parent parent :item item})))
 
         ]
 
@@ -60,28 +68,9 @@
 
 (def QueryParams
   [:map
-   ["start" :string]
-   ["job_count" #"\d+" ]
-   ["slide" #"true|false"]])
-
-(m/=> read-input-config
-      [:=>
-       [:cat [:maybe [:map-of :string :string]]]
-       [:maybe InputConfig]])
-
-(defn read-input-config [params]
-  (when (m/validate QueryParams params)
-
-    (let [[initial-job job-count should-slide]
-          (map params ["start" "job_count" "slide"])]
-
-      {:initial-job initial-job
-       :job-count (Integer/parseInt job-count)
-       :should-slide (if (nil? should-slide) false (Boolean/parseBoolean should-slide))}
-
-      )
-
-    ))
+   [:start :string]
+   [:job_count :int]
+   [:slide :boolean]])
 
 (def Request :any)
 (def Response :any)
@@ -94,26 +83,20 @@
 
 
 (defn handle-search-request [request]
-  (let-flow [input-config (read-input-config (:query-params request))
-             start-term (:initial-job input-config)]
+  (let-flow [parameters (-> request :parameters :query)
+             start-term (:start parameters)]
 
-    (println "Request!")
+    (let-flow [exists (page-exists start-term)]
 
-    (if-not input-config
-      (bad-request "Invalid query params.")
+      (if-not exists
+        (not-found (str "Unknown page " start-term))
 
-      (let-flow [exists (page-exists start-term)]
+        (http-kit/with-channel request channel
+          (if (http-kit/websocket? channel)
 
-        (if-not exists
-          (not-found (str "Unknown page " start-term))
+            (perform-search parameters channel)
 
-          (http-kit/with-channel request channel
-            (if (http-kit/websocket? channel)
-
-              (perform-search input-config channel)
-
-              (http-kit/close channel)
-              )
+            (http-kit/close channel)
             )
           )
         )
@@ -137,13 +120,30 @@
   (ring/router
    [["/stats"
      {:get handle-stats-request
-      :middleware [muuntaja.middleware/wrap-format]}]
+      :middleware [muuntaja.middleware/wrap-format]
 
-    ["/search" {:get (comp deref handle-search-request)}]] )
+      }]
+
+    ["/search"
+     {:get (comp deref handle-search-request)
+
+      :parameters {:query QueryParams}}
+     ]]
+
+   {:data
+    {:coercion reitit.coercion.malli/coercion
+     :middleware [reitit.ring.middleware.exception/exception-middleware
+                  wrap-access-control
+                  wrap-params
+                  rrc/coerce-request-middleware
+
+                  ]}
+    })
   )
 
+
 (def app
-  (-> (ring/ring-handler router)
-      wrap-params
-      wrap-access-control)
+  (ring/ring-handler
+   router
+   )
   )
