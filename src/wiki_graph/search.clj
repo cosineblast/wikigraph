@@ -7,6 +7,9 @@
             [wiki-graph.fetch :refer [fetch-wiki-refs-async]]
             [wiki-graph.report :refer [report with-thread-name]]
             [wiki-graph.util :as util :refer [Chan]]
+
+            [manifold.stream :as s]
+            [manifold.deferred :as d]
             )
   )
 
@@ -134,7 +137,7 @@
 
 (m/=> execute-search [:=> [:cat Config fn?] Chan])
 
-(defn execute-search [config on-notification]
+(defn- execute-search-async [config on-notification]
 
   (a/go
     (report "Search Starting")
@@ -163,3 +166,12 @@
 
       )))
 
+(defn execute-search [config on-notification]
+
+  (let [result (d/deferred)]
+
+    (go (d/success! result (<! (execute-search-async config on-notification))))
+
+    result)
+
+  )

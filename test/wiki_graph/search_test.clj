@@ -21,7 +21,7 @@
 
           on-job (fn [_] (swap! done-count inc))
 
-          success (<!! (sut/execute-search config on-job))
+          success @(sut/execute-search config on-job)
           ]
 
       (is success)
@@ -39,7 +39,7 @@
                   :pending-limit 20
                   :should-slide false
                   }
-          success (<!! (sut/execute-search config identity))]
+          success @(sut/execute-search config identity)]
 
       (is (not success))
       )
@@ -59,7 +59,7 @@
 
           on-job (fn [_] (swap! done-count inc))
 
-          success (<!! (sut/execute-search config identity))]
+          success @(sut/execute-search config identity)]
 
       (is success)
 

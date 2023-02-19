@@ -8,8 +8,7 @@
 
             [wiki-graph.search :as search])
 
-  (:require [clojure.core.async :as a :refer [>! <! >!! <!! go]]
-            [clojure.data.json :as json]
+  (:require [clojure.data.json :as json]
 
             [malli.dev :as dev]
             [malli.core :as m]
@@ -40,29 +39,23 @@
 (m/=> perform-search [:=> [:cat InputConfig :any] Deferred])
 
 (defn perform-search [input-config channel]
-    (let [config (into input-config
-                       {:task-count 4
-                        :pending-limit 100000
-                        })
+  (let [config (into input-config
+                     {:task-count 4
+                      :pending-limit 100000
+                      })
 
-          on-notify
-          (fn [[parent item]]
-            (http-kit/send! channel
-                            (json/write-str {:parent parent
-                                             :item item})))
+        on-notify
+        (fn [[parent item]]
+          (http-kit/send! channel
+                          (json/write-str {:parent parent
+                                           :item item})))
 
-          on-result (d/deferred)
-          ]
+        ]
 
-
-
-      (go (<! (execute-search config on-notify))
-          (http-kit/close channel)
-          (d/success! on-result nil))
-
-      on-result
-
+    (let-flow [_ (execute-search config on-notify)]
+      (http-kit/close channel)
       )
+    )
   )
 
 (def QueryParams
@@ -93,16 +86,10 @@
 (def Request :any)
 (def Response :any)
 
-(defn deferred-from [channel]
-  (let [result (d/deferred)]
-    (go (d/success! result (<! channel)))
-    result
-    ))
-
 (defn page-exists [page]
   (if (graph/get page)
     (deferred-of true)
-    (deferred-from (fetch/target-exists page))
+    (fetch/target-exists-deferred page)
     ))
 
 

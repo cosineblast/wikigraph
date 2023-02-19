@@ -1,6 +1,8 @@
 (ns wiki-graph.util
   (:require [malli.core :as m]
-            [clojure.core.async :as a])
+            [clojure.core.async :as a]
+            [manifold.stream :as s])
+
   (:import [clojure.core.async.impl.channels ManyToManyChannel])
   )
 
@@ -43,6 +45,41 @@
              ))]
 
      (when close? (a/close! channel))
+
+     result
+     )
+   )
+
+  ([channel coll] (offer-onto-chan channel coll true))
+  )
+
+(defn offer-onto-stream
+  "Puts the contents of coll into the supplied stream
+  without allowing any timeout on puts.
+
+  If the close? argument is true (the default),
+  the function closes the channel before returning.
+
+  Returns true if and only if all elements of coll
+  where successfully offered onto the stream.
+  "
+
+  ([stream coll close?]
+
+   (let [result
+         (loop [values coll]
+
+           (if-let [[value & more] (seq values)]
+
+             ;; TODO: make this function return a deferred.
+             (if @(s/try-put! stream value 0)
+               (recur more)
+               false)
+
+             true
+             ))]
+
+     (when close? (s/close! stream))
 
      result
      )
